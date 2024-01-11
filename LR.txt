@@ -1,0 +1,60 @@
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix, classification_report
+
+# 读取数据
+data = pd.read_csv(r'F:\研究生\巢湖论文\新新数据\shuju.csv')
+y = data.iloc[:, 0]
+X = data.iloc[:, 1:]
+
+# 划分数据集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 定义模型
+model = LogisticRegression(solver='liblinear', multi_class='ovr')
+
+# 定义参数空间
+parameter_space = {'C': [0.01, 0.1, 1, 10],
+                   'penalty': ['l1', 'l2']}
+
+# 进行网格搜索
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+gridsearch = GridSearchCV(estimator=model, param_grid=parameter_space, cv=cv, scoring='accuracy')
+gridsearch.fit(X_train, y_train)
+
+# 输出最优参数
+best_params = gridsearch.best_params_
+print("Best parameters: ", best_params)
+
+# 训练模型
+best_model = LogisticRegression(C=best_params['C'], penalty=best_params['penalty'], solver='liblinear', multi_class='ovr')
+best_model.fit(X_train, y_train)
+
+# 计算训练集准确度
+y_pred_train = best_model.predict(X_train)
+accuracy_train = accuracy_score(y_train, y_pred_train)
+print("Training Accuracy: ", accuracy_train)
+
+# 输出测试集准确度
+y_pred = best_model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("测试集Accuracy: ", accuracy)
+
+print("输出测试混淆矩阵、准确率、F1分数等判断标准")
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
+report = classification_report(y_test, y_pred)
+print(report)
+
+# 获取特征重要性分数
+importance = np.abs(best_model.coef_[0])
+
+# 将特征重要性分数转换为百分比
+importance_percent = importance / np.sum(importance)
+
+# 输出每个特征的重要性百分比
+for i, feature in enumerate(X.columns):
+    print('Feature %s importance: %.3f' % (feature, importance_percent[i]))
