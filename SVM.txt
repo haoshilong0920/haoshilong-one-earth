@@ -6,48 +6,39 @@ from sklearn.svm import SVC
 from bayes_opt import BayesianOptimization
 from sklearn.metrics import confusion_matrix
 # Load the data
-data = pd.read_csv(r'F:\研究生\巢湖论文\新新数据\shuju.csv')
+data = pd.read_csv(r'')
 y = data.iloc[:, 0]
 X = data.iloc[:, 1:]
 
-# Split the data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Define the model
 def svm_cv(C, gamma):
     model = SVC(C=C, gamma=gamma, kernel='linear', random_state=42)
     model.fit(X_train,y_train)
     cv_score = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy').mean()
     return cv_score
 
-# Define the hyperparameter search space
 param_space = {'C': (0.01, 1000),
                'gamma':(0.0001, 1)}
 
-# Define the Bayesian optimization object and fit the model
 bayes_opt = BayesianOptimization(f=svm_cv, pbounds=param_space, random_state=42)
 bayes_opt.maximize(init_points=10, n_iter=20)
 
-# Print the best hyperparameters and the corr还esponding accuracy score
 print("Best hyperparameters:", bayes_opt.max['params'])
 print("Training set accuracy:", -bayes_opt.max['target'])
 print("Testing set accuracy:", SVC(**bayes_opt.max['params'], kernel='linear', random_state=42).fit(X_train, y_train).score(X_test, y_test))
 
-# 计算特征重要性
 model = SVC(**bayes_opt.max['params'], kernel='linear', random_state=42)
 model.fit(X_train, y_train)
 
-# 输出测试集准确度
 y_pred = model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 print("Accuracy: ", accuracy)
 
-# 查看混淆矩阵 (预测值和真实值的各类情况统计矩阵)
 confusion_matrix_result = metrics.confusion_matrix(y_pred, y_test)
 print('The confusion matrix result:\n', confusion_matrix_result)
 print(classification_report(y_test, y_pred))
 
-# 输出每个特征的重要性百分比
 feature_importances = abs(model.coef_) / abs(model.coef_).sum(axis=1, keepdims=True)
 print("Feature importances:")
 for i, feature in enumerate(X.columns):
