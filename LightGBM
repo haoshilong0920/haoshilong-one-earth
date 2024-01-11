@@ -1,0 +1,72 @@
+import numpy as np
+import pandas as pd
+from lightgbm import plot_importance
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from lightgbm.sklearn import LGBMClassifier
+from sklearn.metrics import accuracy_score
+from bayes_opt import BayesianOptimization
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+
+data = pd.read_csv(r'')
+y = data.iloc[:, 0]
+X = data.iloc[:, 1:]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+def LGBM_evaluate(max_depth, learning_rate, n_estimators, colsample_bytree, num_leaves):
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    accuracies = []
+    for train_idx, val_idx in cv.split(X_train, y_train):
+        X_train_fold, y_train_fold = X_train.iloc[train_idx], y_train.iloc[train_idx]
+        X_val_fold, y_val_fold = X_train.iloc[val_idx], y_train.iloc[val_idx]
+        model = LGBMClassifier(objective='binary', num_class=1, max_depth=int(max_depth),
+                               learning_rate=learning_rate, n_estimators=int(n_estimators),
+                               colsample_bytree=colsample_bytree,
+                               random_state=42, num_leaves=int(num_leaves))
+        model.fit(X_train_fold, y_train_fold)
+        y_pred_fold = model.predict(X_val_fold)
+        accuracy_fold = accuracy_score(y_val_fold, y_pred_fold)
+        accuracies.append(accuracy_fold)
+    accuracy = np.mean(accuracies)
+    return accuracy
+
+parameter_space = {'max_depth': (3, 10),
+                   'learning_rate': (0.01, 0.3),
+                   'n_estimators': (10, 500),
+                   'colsample_bytree': (0.1, 1),
+                   'num_leaves': (20, 80)}
+
+LGBM_bo = BayesianOptimization(f=LGBM_evaluate, pbounds=parameter_space, random_state=42)
+LGBM_bo.maximize(init_points=10, n_iter=20)
+
+best_params = LGBM_bo.max['params']
+for key in best_params:
+    if isinstance(best_params[key], float):
+        best_params[key] = round(best_params[key], 2)
+
+best_params['n_estimators'] = int(best_params['n_estimators'])
+best_params['max_depth'] = int(best_params['max_depth'])
+best_params['num_leaves'] = int(best_params['num_leaves'])
+print("Best parameters: ", best_params)
+
+best_model = LGBMClassifier(objective='binary', num_class=1, **best_params, random_state=42)
+best_model.fit(X_train, y_train)
+
+y_pred_train = best_model.predict(X_train)
+accuracy_train = accuracy_score(y_train, y_pred_train)
+print("Training Accuracy: ", accuracy_train)
+
+y_pred = best_model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print("Train Accuracy: ", accuracy)
+
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
+report = classification_report(y_test, y_pred)
+print(report)
+importance = best_model.feature_importances_
+importance_percent = importance / np.sum(importance)
+for i, feature in enumerate(X.columns):
+    print('Feature %s importance: %.3f' % (feature, importance[i]))
+    print('Feature %s importance: %.3f' % (feature, importance_percent[i]))
