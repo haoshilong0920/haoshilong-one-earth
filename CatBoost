@@ -1,0 +1,80 @@
+import numpy as np
+import pandas as pd
+from catboost import CatBoostClassifier, Pool
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.metrics import accuracy_score
+from bayes_opt import BayesianOptimization
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+
+data = pd.read_csv(r'')
+y = data.iloc[, 0]
+X = data.iloc[, 1]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+def CatBoost_evaluate(max_depth, learning_rate, n_estimators, l2_leaf_reg, subsample, colsample_bylevel)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    accuracies = []
+    for train_idx, val_idx in cv.split(X_train, y_train)
+        X_train_fold, y_train_fold = X_train.iloc[train_idx], y_train.iloc[train_idx]
+        X_val_fold, y_val_fold = X_train.iloc[val_idx], y_train.iloc[val_idx]
+        train_pool = Pool(X_train_fold, y_train_fold)
+        val_pool = Pool(X_val_fold, y_val_fold)
+        model = CatBoostClassifier(loss_function='CrossEntropy', eval_metric='Accuracy', use_best_model=True,
+                                   iterations=int(n_estimators),
+                                   learning_rate=learning_rate, depth=int(max_depth), l2_leaf_reg=l2_leaf_reg,
+                                   subsample=subsample, colsample_bylevel=colsample_bylevel, bootstrap_type='Bernoulli')
+        model.fit(train_pool, eval_set=val_pool, early_stopping_rounds=20, verbose=False)
+        y_pred_fold = model.predict(X_val_fold)
+        accuracy_fold = accuracy_score(y_val_fold, y_pred_fold)
+        accuracies.append(accuracy_fold)
+    accuracy = np.mean(accuracies)
+    return accuracy
+
+parameter_space = {'max_depth' (3, 10),
+                   'learning_rate' (0.01, 0.3),
+                   'n_estimators' (10, 500),
+                   'l2_leaf_reg' (1, 10),
+                   'subsample' (0.1, 1),
+                   'colsample_bylevel' (0.1, 1)}
+
+CatBoost_bo = BayesianOptimization(f=CatBoost_evaluate, pbounds=parameter_space, random_state=42)
+CatBoost_bo.maximize(init_points=10, n_iter=20)
+
+best_params = CatBoost_bo.max['params']
+for key in best_params
+    if isinstance(best_params[key], float)
+        best_params[key] = round(best_params[key], 2)
+
+best_params['n_estimators'] = int(best_params['n_estimators'])
+best_params['max_depth'] = int(best_params['max_depth'])
+best_params['l2_leaf_reg'] = int(best_params['l2_leaf_reg'])
+print(Best parameters , best_params)
+
+train_pool = Pool(X_train, y_train)
+best_model = CatBoostClassifier(loss_function='CrossEntropy', eval_metric='Accuracy', use_best_model=True,
+                                n_estimators=best_params['n_estimators'],
+                                learning_rate=best_params['learning_rate'], depth=best_params['max_depth'],
+                                l2_leaf_reg=best_params['l2_leaf_reg'],
+                                bootstrap_type='Bernoulli',
+                                subsample=best_params['subsample'], colsample_bylevel=best_params['colsample_bylevel'],)
+best_model.fit(train_pool, eval_set=(X_test, y_test), early_stopping_rounds=20, verbose=False)
+
+y_pred_train = best_model.predict(X_train)
+accuracy_train = accuracy_score(y_train, y_pred_train)
+print(Training Accuracy , accuracy_train)
+
+y_pred = best_model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(Train Accuracy , accuracy)
+
+cm = confusion_matrix(y_test, y_pred)
+print(cm)
+report = classification_report(y_test, y_pred)
+print(report)
+
+importance = best_model.get_feature_importance()
+importance_percent = importance  np.sum(importance)
+for i, feature in enumerate(X.columns)
+    print('Feature %s importance %.3f' % (feature, importance_percent[i]))
