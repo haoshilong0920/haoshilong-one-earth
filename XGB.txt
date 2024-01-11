@@ -8,18 +8,14 @@ from sklearn.metrics import classification_report
 import shap
 from sklearn import metrics
 
-# 读取数据
-data = pd.read_csv(r'F:\研究生\巢湖论文\新新数据\shuju.csv')
+data = pd.read_csv(r'')
 y = data.iloc[:, 0]
 X = data.iloc[:, 1:]
 
-# 划分数据集+
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# 定义目标函数
 def xgb_evaluate(max_depth, learning_rate, n_estimators, gamma, min_child_weight, subsample, colsample_bytree,
                  reg_alpha, reg_lambda):
-    # 五折交叉验证
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     accuracies = []
     for train_idx, val_idx in cv.split(X_train, y_train):
@@ -36,7 +32,6 @@ def xgb_evaluate(max_depth, learning_rate, n_estimators, gamma, min_child_weight
     accuracy = np.mean(accuracies)
     return accuracy
 
-# 定义参数空间
 parameter_space = {'max_depth': (3, 10),
                    'learning_rate': (0.01, 0.3),
                    'n_estimators': (10, 500),
@@ -47,11 +42,9 @@ parameter_space = {'max_depth': (3, 10),
                    'reg_alpha': (0, 1),
                    'reg_lambda': (0, 1)}
 
-# 进行贝叶斯优化
 xgb_bo = BayesianOptimization(f=xgb_evaluate, pbounds=parameter_space, random_state=42)
 xgb_bo.maximize(init_points=10, n_iter=20)
 
-# 输出最优参数
 best_params = xgb_bo.max['params']
 for key in best_params:
     if isinstance(best_params[key], float):
@@ -61,28 +54,21 @@ best_params['n_estimators'] = int(best_params['n_estimators'])
 best_params['max_depth'] = int(best_params['max_depth'])
 print("Best parameters: ", best_params)
 
-# 在测试集上进行预测
 best_model = XGBClassifier(objective='binary:logistic', num_class=1, **best_params, random_state=42)
 best_model.fit(X_train, y_train)
 
-# 计算训练集准确度
 y_pred_train = best_model.predict(X_train)
 accuracy_train = accuracy_score(y_train, y_pred_train)
 print("Training Accuracy: ", accuracy_train)
 
-# 输出测试集准确度
 y_pred = best_model.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 print("Accuracy: ", accuracy)
 
-# 查看混淆矩阵 (预测值和真实值的各类情况统计矩阵)
 confusion_matrix_result = metrics.confusion_matrix(y_pred, y_test)
 print('The confusion matrix result:\n', confusion_matrix_result)
 print(classification_report(y_test, y_pred))
 
-# 获取特征重要性分数
 importance = best_model.feature_importances_
 for i, feature in enumerate(X.columns):
     print('Feature %s importance: %.3f' % (feature, importance[i]))
-
-
