@@ -1,0 +1,37 @@
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+import matplotlib.pyplot as plt
+
+# 读取输入数据
+data = pd.read_csv(r'F研究生巢湖论文新新数据MLR.csv')  # 替换为你的数据文件路径
+
+# 提取输入特征 x 和目标变量 y
+x = data.iloc[, 10]  # 假设前十列是输入特征 x
+y = data.iloc[, -1]  # 假设最后一列是目标变量 y
+
+# 创建并拟合多元线性回归模型
+model = LinearRegression()
+model.fit(x, y)
+
+# 输出回归方程
+coefficients = model.coef_
+intercept = model.intercept_
+print(回归方程)
+equation = y = 
+for i in range(len(coefficients))
+    equation += f({coefficients[i]}  x{i+1}) + 
+equation += f{intercept}
+print(equation)
+
+# 进行预测
+y_pred = model.predict(x)
+
+# 计算 R2 评估指标
+r2 = r2_score(y, y_pred)
+print(R2, r2)
+
+# 计算平均绝对误差（MAE）
+mae = np.mean(np.abs(y - y_pred))
+print(MAE, mae)
